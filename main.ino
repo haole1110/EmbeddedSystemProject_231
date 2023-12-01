@@ -21,7 +21,6 @@
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
 #include <SoftwareSerial.h>
-#include <Thread.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -56,7 +55,7 @@ SoftwareSerial mySerial(RX_PIN, TX_PIN);
 // Adafruit IO Account Configuration
 // (to obtain these values, visit https://io.adafruit.com and click on Active Key)
 #define AIO_USERNAME "haole1110"
-#define AIO_KEY "aio_ZLBh61asqnKW4oWnfRsQCjby6YXB"
+#define AIO_KEY "aio_NhVe35Xb4ybVtv9rzPsvf2EsQfUE"
 
 /************ Global State (you don't need to change this!) ******************/
 
@@ -114,10 +113,6 @@ void setup() {
   mySerial.begin(9600);
   delay(10);
 
-    // Tạo các task
-  xTaskCreatePinnedToCore(writeSignal,"Task1",10000,NULL,1,&writeSignalHandle,0);  delay(500);   
-  xTaskCreatePinnedToCore(readDataSensor,"Task2",10000,NULL,1,&readDataSensorHandle,1);  delay(500); 
-
   // Cài đặt chân RX/TX
   pinMode(RX_PIN, INPUT);
   pinMode(TX_PIN, OUTPUT);
@@ -149,6 +144,11 @@ void setup() {
   client.setCACert(adafruitio_root_ca);
   mqtt.subscribe(&led);
   mqtt.subscribe(&thief);
+
+  // Tạo các 
+  MQTT_connect();
+  xTaskCreatePinnedToCore(readDataSensor,"Task1",10000,NULL,1,&writeSignalHandle,1);    
+  xTaskCreatePinnedToCore(writeSignal,"Task2",10000,NULL,1,&readDataSensorHandle,0);  
 }
 
 uint32_t x = 0;
@@ -157,15 +157,13 @@ void loop() {
   // Ensure the connection to the MQTT server is alive (this will make the first
   // connection and automatically reconnect when disconnected).  See the MQTT_connect
   // function definition further below.
-
   // MQTT_connect();
-  // readThread.run();
-  // writeThread.run();
 
-  //writeSignal();
-  //readDataSensor();
+  // writeSignal();
+  // readDataSensor();
 
   // wait a couple seconds to avoid rate limit
+  vTaskDelay(100 / portTICK_PERIOD_MS); // Delay 1 giây
 }
 
 // Function to connect and reconnect as necessary to the MQTT server.
@@ -197,12 +195,10 @@ void MQTT_connect() {
   Serial.println("MQTT Connected!");
 }
 
-static String temp1 = "", temp2 = "", temp3 = "";
-
 void readDataSensor(void *parameter) {
+  static String temp1 = "", temp2 = "", temp3 = "";
   while (true){
-    MQTT_connect();
-
+    // Serial.println("readDataSensor");
     // Serial.println(0);
     if (Serial.available() > 0) {
       // Serial.println(1);
@@ -290,26 +286,25 @@ void readDataSensor(void *parameter) {
 }
 
 void writeSignal(void *parameter) {
+  Adafruit_MQTT_Subscribe* subscription;
   while (true){
-    MQTT_connect();
+    // Serial.println("writeSignal");
+    // if ((subscription = mqtt.readSubscription(50))) {
+    //   if (subscription == &led) {
+    //     Serial.print("Received data from Led feed: ");
+    //     String data_recieved = "!L" + String((char*)led.lastread) + "#";
+    //     Serial.println(data_recieved);
+    //     // Xử lý dữ liệu ở đây (nếu cần)
 
-    Adafruit_MQTT_Subscribe* subscription;
-    while ((subscription = mqtt.readSubscription(5000))) {
-      if (subscription == &led) {
-        Serial.print("Received data from Led feed: ");
-        String data_recieved = "!L" + String((char*)led.lastread) + "#";
-        Serial.println(data_recieved);
-        // Xử lý dữ liệu ở đây (nếu cần)
+    //   }
 
-      }
-
-      if (subscription == &thief) {
-        Serial.print("Received data from Thief feed: ");
-        String data_recieved = "!F" + String((char*)thief.lastread) + "#";
-        Serial.println(data_recieved);
-        // Xử lý dữ liệu ở đây (nếu cần)
-      }
-    }
+    //   if (subscription == &thief) {
+    //     Serial.print("Received data from Thief feed: ");
+    //     String data_recieved = "!F" + String((char*)thief.lastread) + "#";
+    //     Serial.println(data_recieved);
+    //     // Xử lý dữ liệu ở đây (nếu cần)
+    //   }
+    // }
     vTaskDelay(100 / portTICK_PERIOD_MS); // Delay 1 giây
   }
 }
