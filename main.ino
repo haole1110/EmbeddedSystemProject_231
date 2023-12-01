@@ -27,8 +27,8 @@
 
 /************************* FreeRTOS *********************************/
 // Khai báo hàm cho các task
-void writeSignal(void *parameter);
-void readDataSensor(void *parameter);
+// void writeSignal(void *parameter);
+// void readDataSensor(void *parameter);
 
 // Định nghĩa task handlers
 TaskHandle_t writeSignalHandle = NULL;
@@ -56,7 +56,7 @@ SoftwareSerial mySerial(RX_PIN, TX_PIN);
 // Adafruit IO Account Configuration
 // (to obtain these values, visit https://io.adafruit.com and click on Active Key)
 #define AIO_USERNAME "haole1110"
-#define AIO_KEY "aio_ZLBh61asqnKW4oWnfRsQCjby6YXB"
+#define AIO_KEY "aio_Kjgz49GFzLgeoXHNj37due4jKDg9"
 
 /************ Global State (you don't need to change this!) ******************/
 
@@ -103,6 +103,8 @@ const char* adafruitio_root_ca =
 Adafruit_MQTT_Publish door = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/door");
 Adafruit_MQTT_Publish humidity = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/humidity");
 Adafruit_MQTT_Publish temperature = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/temperature");
+Adafruit_MQTT_Publish led1 = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/led");
+
 
 Adafruit_MQTT_Subscribe led = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/led");
 Adafruit_MQTT_Subscribe thief = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/thief");
@@ -115,8 +117,8 @@ void setup() {
   delay(10);
 
     // Tạo các task
-  xTaskCreatePinnedToCore(writeSignal,"Task1",10000,NULL,1,&writeSignalHandle,0);  delay(500);   
-  xTaskCreatePinnedToCore(readDataSensor,"Task2",10000,NULL,1,&readDataSensorHandle,1);  delay(500); 
+  // xTaskCreatePinnedToCore(writeSignal,"Task1",10000,NULL,1,&writeSignalHandle,0);  delay(500);   
+  // xTaskCreatePinnedToCore(readDataSensor,"Task2",10000,NULL,1,&readDataSensorHandle,1);  delay(500); 
 
   // Cài đặt chân RX/TX
   pinMode(RX_PIN, INPUT);
@@ -158,12 +160,12 @@ void loop() {
   // connection and automatically reconnect when disconnected).  See the MQTT_connect
   // function definition further below.
 
-  // MQTT_connect();
+  MQTT_connect();
   // readThread.run();
   // writeThread.run();
 
-  //writeSignal();
-  //readDataSensor();
+  writeSignal();
+  readDataSensor();
 
   // wait a couple seconds to avoid rate limit
 }
@@ -199,106 +201,116 @@ void MQTT_connect() {
 
 static String temp1 = "", temp2 = "", temp3 = "";
 
-void readDataSensor(void *parameter) {
-  while (true){
-    MQTT_connect();
+void readDataSensor()
+{
+    if (mySerial.available() > 0)
+    {
+        String string_data = mySerial.readStringUntil('\n');
+        Serial.println(string_data);
 
-    // Serial.println(0);
-    if (Serial.available() > 0) {
-      // Serial.println(1);
-      String string_data = "";
-      char data = Serial.read();
-      if (data == '!') {
-        // Serial.println(2);
-        string_data += data;
-        while (data != '#' && string_data.length() < 10) {
-          // Serial.println(3);
-          if (Serial.available() > 0) {
-            data = Serial.read();
-            string_data += data;
-          }
+        if (string_data[string_data.length() - 2] != '#'){
+          Serial.println("Line 210");
+          return;
+
         }
-      }
+            
+        char feed_data = string_data[1];
+        string_data = string_data.substring(2, string_data.length() - 2);
 
-      Serial.println(string_data);
+        // temp1 = temp2;
+        // temp2 = temp3;
+        // temp3 = string_data;
 
-      if (string_data[string_data.length() - 1] != '#') return;
-
-      char feed_data = string_data[1]; 
-      string_data = string_data.substring(2, string_data.length() - 1);
-
-      // temp1 = temp2;
-      // temp2 = temp3;
-      // temp3 = string_data;
-
-
-
-      if (string_data == "") return;
-      Serial.println(string_data);
-
-      if (1) {
-        switch(feed_data) {
+        if (string_data == "")
+            return;
+        Serial.println(string_data);
+        switch (feed_data)
+        {
         case 'D':
-          // Now we can publish stuff!
-          Serial.print(F("\nSending val "));
-          Serial.print(string_data);
-          Serial.print(F(" to Door feed..."));
-          if (!door.publish(&string_data[0])) {
-            Serial.println(F("Failed"));
-          } else {
-            Serial.println(F("OK!"));
-            temp1 = "";
-            temp2 = "";
-            temp3 = "";
-          }
-          break;
+            // Now we can publish stuff!
+            Serial.print(F("\nSending val "));
+            Serial.print(string_data);
+            Serial.print(F(" to Door feed..."));
+            if (!door.publish(&string_data[0]))
+            {
+                Serial.println(F("Failed"));
+            }
+            else
+            {
+                Serial.println(F("OK!"));
+                temp1 = "";
+                temp2 = "";
+                temp3 = "";
+            }
+            break;
         case 'H':
-          // Now we can publish stuff!
-          Serial.print(F("\nSending val "));
-          Serial.print(string_data);
-          Serial.print(F(" to humidity feed..."));
-          if (!humidity.publish(&string_data[0])) {
-            Serial.println(F("Failed"));
-          } else {
-            Serial.println(F("OK!"));
-            temp1 = "";
-            temp2 = "";
-            temp3 = "";
-          }
-          break;
+            // Now we can publish stuff!
+            Serial.print(F("\nSending val "));
+            Serial.print(string_data);
+            Serial.print(F(" to humidity feed..."));
+            if (!humidity.publish(&string_data[0]))
+            {
+                Serial.println(F("Failed"));
+            }
+            else
+            {
+                Serial.println(F("OK!"));
+                temp1 = "";
+                temp2 = "";
+                temp3 = "";
+            }
+            break;
         case 'T':
-          // Now we can publish stuff!
-          Serial.print(F("\nSending val "));
-          Serial.print(string_data);
-          Serial.print(F(" to temperature feed..."));
-          if (!temperature.publish(&string_data[0])) {
-            Serial.println(F("Failed"));
-          } else {
-            Serial.println(F("OK!"));
-            temp1 = "";
-            temp2 = "";
-            temp3 = "";
-          }
-          break;
+            // Now we can publish stuff!
+            Serial.print(F("\nSending val "));
+            Serial.print(string_data);
+            Serial.print(F(" to temperature feed..."));
+            if (!temperature.publish(&string_data[0]))
+            {
+                Serial.println(F("Failed"));
+            }
+            else
+            {
+                Serial.println(F("OK!"));
+                temp1 = "";
+                temp2 = "";
+                temp3 = "";
+            }
+            break;
+        case 'L':
+            // Now we can publish stuff!
+            Serial.print(F("\nSending val "));
+            Serial.print(string_data);
+            Serial.print(F(" to led feed..."));
+            if (!led1.publish(&string_data[0]))
+            {
+                Serial.println(F("Failed"));
+            }
+            else
+            {
+                Serial.println(F("OK!"));
+                temp1 = "";
+                temp2 = "";
+                temp3 = "";
+            }
+            break;
         default:
-          break;
+            break;
         }
-      }
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS); // Delay 1 giây
-  }
 }
 
-void writeSignal(void *parameter) {
-  while (true){
-    MQTT_connect();
+void writeSignal() {
+  // while (true){
+  //   MQTT_connect();
 
     Adafruit_MQTT_Subscribe* subscription;
-    while ((subscription = mqtt.readSubscription(5000))) {
+    if ((subscription = mqtt.readSubscription(5000))) {
       if (subscription == &led) {
         Serial.print("Received data from Led feed: ");
         String data_recieved = "!L" + String((char*)led.lastread) + "#";
         Serial.println(data_recieved);
+        mySerial.println(data_recieved);
         // Xử lý dữ liệu ở đây (nếu cần)
 
       }
@@ -307,9 +319,10 @@ void writeSignal(void *parameter) {
         Serial.print("Received data from Thief feed: ");
         String data_recieved = "!F" + String((char*)thief.lastread) + "#";
         Serial.println(data_recieved);
+        mySerial.println(data_recieved);
         // Xử lý dữ liệu ở đây (nếu cần)
       }
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS); // Delay 1 giây
-  }
+  //   vTaskDelay(100 / portTICK_PERIOD_MS); // Delay 1 giây
+  // }
 }
